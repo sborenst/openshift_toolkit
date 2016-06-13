@@ -72,7 +72,7 @@
   - name: Get GUID from machine
     shell: "hostname|cut -f2 -d-|cut -f1 -d."
     register: guid_id
-    ignore_erros: false
+    ignore_errors: false
 
   - name: Instantiate the logging deployer via the template
     shell: >
