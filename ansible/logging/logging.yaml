@@ -7,7 +7,7 @@
   - name: Change the oc context
     command: "oc config use-context default/master1-example-com:8443/system:admin"
 
-  - name: Check for the logging project
+  - name: Check for the logging project OK if fails
     command: "oc get project logging"
     register: logging_out
     ignore_errors: true
@@ -15,7 +15,7 @@
   # we will eventually want to look at the logging and metrics project, so
   # this is useful
   # using karla for now because i forget what users there are
-  - name: Make andrew user a cluster-admin
+  - name: Make karla user a cluster-admin
     command: oadm policy add-cluster-role-to-user cluster-admin karla
 
   # eventually we will change the region to be appropriate and this command will need to change
@@ -57,6 +57,89 @@
   - name: Grant the edit role to the logging-deployer service account
     command: oc policy add-role-to-user edit system:serviceaccount:logging:logging-deployer
 
+  - name: Grant the clusteredit role to the logging-deployer service account
+    command: oadm policy add-cluster-role-to-user cluster-admin system:serviceaccount:logging:logging-deployer
+
+
+
+  - name: Check for aggregated-logging-elasticsearch service account OK if Fails
+    command: oc get sa aggregated-logging-elasticsearch
+    register: aggregated-logging-elasticsearch_sa_out
+    ignore_errors: true
+
+  - name: Create the aggregated-logging-elasticsearch service account
+    shell: 'echo ''{"apiVersion":"v1","kind":"ServiceAccount","metadata":{"name":"aggregated-logging-elasticsearch"},"secrets":[{"name":"aggregated-logging-elasticsearch"}]}'' | oc create -f -'
+    when: logging_deployer_sa_out | failed
+
+  - name: Wait for the aggregated-logging-elasticsearch secrets OK if Fails
+    shell: "oc get secrets | grep aggregated-logging-elasticsearch-token"
+    register: deployer_token_out
+    until: deployer_token_out | success
+    retries: 15
+    delay: 10
+
+  - name: Grant the edit role to the aggregated-logging-elasticsearch service account
+    command: oc policy add-role-to-user edit system:serviceaccount:logging:aggregated-logging-elasticsearch
+
+  - name: Check for aggregated-logging-kibana service account OK if Fails
+    command: oc get sa aggregated-logging-kibana
+    register: aggregated-logging-kibana_sa_out
+    ignore_errors: true
+
+  - name: Create the aggregated-logging-kibana service account
+    shell: 'echo ''{"apiVersion":"v1","kind":"ServiceAccount","metadata":{"name":"aggregated-logging-kibana"},"secrets":[{"name":"aggregated-logging-kibana"}]}'' | oc create -f -'
+    when: logging_deployer_sa_out | failed
+
+  - name: Wait for the aggregated-logging-kibana secrets OK if Fails
+    shell: "oc get secrets | grep aggregated-logging-kibana-token"
+    register: deployer_token_out
+    until: deployer_token_out | success
+    retries: 15
+    delay: 10
+
+  - name: Grant the edit role to the aggregated-logging-kibana service account
+    command: oc policy add-role-to-user edit system:serviceaccount:logging:aggregated-logging-kibana
+
+  - name: Check for aggregated-logging-fluentd service account OK if Fails
+    command: oc get sa aggregated-logging-fluentd
+    register: aggregated-logging-fluentd_sa_out
+    ignore_errors: true
+
+  - name: Create the aggregated-logging-fluentd service account
+    shell: 'echo ''{"apiVersion":"v1","kind":"ServiceAccount","metadata":{"name":"aggregated-logging-fluentd"},"secrets":[{"name":"aggregated-logging-fluentd"}]}'' | oc create -f -'
+    when: logging_deployer_sa_out | failed
+
+  - name: Wait for the aggregated-logging-fluentd secrets OK if Fails
+    shell: "oc get secrets | grep aggregated-logging-fluentd-token"
+    register: deployer_token_out
+    until: deployer_token_out | success
+    retries: 15
+    delay: 10
+
+  - name: Grant the edit role to the aggregated-logging-fluentd service account
+    command: oc policy add-role-to-user edit system:serviceaccount:logging:aggregated-logging-fluentd
+
+
+  - name: Check for aggregated-logging-curator service account OK if Fails
+    command: oc get sa aggregated-logging-curator
+    register: aggregated-logging-curator_sa_out
+    ignore_errors: true
+
+  - name: Create the aggregated-logging-curator service account
+    shell: 'echo ''{"apiVersion":"v1","kind":"ServiceAccount","metadata":{"name":"aggregated-logging-curator"},"secrets":[{"name":"aggregated-logging-curator"}]}'' | oc create -f -'
+    when: logging_deployer_sa_out | failed
+
+  - name: Wait for the aggregated-logging-curator secrets OK if Fails
+    shell: "oc get secrets | grep aggregated-logging-curator-token"
+    register: deployer_token_out
+    until: deployer_token_out | success
+    retries: 15
+    delay: 10
+
+  - name: Grant the edit role to the aggregated-logging-curator service account
+    command: oc policy add-role-to-user edit system:serviceaccount:logging:aggregated-logging-curator
+
+
   - name: Put the fluentd service account in the privileged SCC
     command: oadm policy add-scc-to-user privileged system:serviceaccount:logging:aggregated-logging-fluentd
 
@@ -79,7 +162,7 @@
       oc process logging-deployer-template -n openshift
       -v KIBANA_HOSTNAME=kibana.cloudapps-{{ guid_id.stdout }}.oslab.opentlc.com
       -v PUBLIC_MASTER_URL=https://master1-{{ guid_id.stdout }}.oslab.opentlc.com:8443
-      -v ES_CLUSTER_SIZE=1
+      -v ES_CLUSTER_SIZE=1 -v IMAGE_VERSION=3.3.0 -v IMAGE_PREFIX="registry.test.opentlc.com:5000/openshift3/"
       -v ES_INSTANCE_RAM=1024M | oc create -f -
     when: logging_support_template_out | failed
 
